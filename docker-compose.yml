@@ -41,6 +41,14 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  web:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
 volumes:
   pgdata:
   miniodata:

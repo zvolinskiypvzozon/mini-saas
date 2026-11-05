@@ -49,6 +49,19 @@ services:
       - api
     restart: unless-stopped
 
+  backup:
+    build: ./backup
+    env_file: .env
+    environment:
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-7}
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   pgdata:
   miniodata:

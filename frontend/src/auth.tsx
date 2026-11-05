@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
-import { api, getToken, setToken, setUnauthorizedHandler } from "./api";
+import { api, setUnauthorizedHandler } from "./api";
 import type { User } from "./types";
 
 interface AuthState {
@@ -8,34 +8,35 @@ interface AuthState {
   loading: boolean;
   isAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(() => getToken() !== null);
-
-  const logout = useCallback(() => {
-    setToken(null);
-    setUser(null);
-  }, []);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setUnauthorizedHandler(logout);
-    if (getToken() === null) return;
+    setUnauthorizedHandler(() => setUser(null));
     api
       .me()
       .then(setUser)
-      .catch(logout)
+      .catch(() => setUser(null))
       .finally(() => setLoading(false));
-  }, [logout]);
+  }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const { access_token } = await api.login(email, password);
-    setToken(access_token);
+    await api.login(email, password);
     setUser(await api.me());
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      await api.logout();
+    } finally {
+      setUser(null);
+    }
   }, []);
 
   const isAdmin = user?.role === "owner" || user?.role === "admin";

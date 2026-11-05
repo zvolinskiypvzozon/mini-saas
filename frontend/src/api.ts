@@ -1,6 +1,15 @@
 import type { Project, Role, StoredFile, Task, TaskStatus, User } from "./types";
 
-const TOKEN_KEY = "token";
+// Сессия живёт в HttpOnly cookie: JavaScript её не видит, поэтому XSS не может украсть токен.
+// Заголовок ниже — защита от CSRF: чужой сайт не может добавить его к запросу без разрешения CORS.
+const CSRF_HEADER = "X-Requested-With";
+
+// прошлые версии хранили токен в localStorage — убираем его у тех, кто входил раньше
+try {
+  localStorage.removeItem("token");
+} catch {
+  // хранилище недоступно — удалять нечего
+}
 
 export class ApiError extends Error {
   status: number;
@@ -8,23 +17,6 @@ export class ApiError extends Error {
   constructor(status: number, message: string) {
     super(message);
     this.status = status;
-  }
-}
-
-export function getToken(): string | null {
-  try {
-    return localStorage.getItem(TOKEN_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function setToken(token: string | null): void {
-  try {
-    if (token) localStorage.setItem(TOKEN_KEY, token);
-    else localStorage.removeItem(TOKEN_KEY);
-  } catch {
-    // хранилище недоступно (приватный режим) — просто не запоминаем вход
   }
 }
 
@@ -47,16 +39,29 @@ async function errorMessage(response: Response): Promise<string> {
   return `Ошибка ${response.status}`;
 }
 
+let refreshing: Promise<boolean> | null = null;
+
+// Один общий запрос обновления, даже если сразу несколько запросов получили 401.
+function refreshSession(): Promise<boolean> {
+  if (refreshing === null) {
+    refreshing = fetch("/api/auth/refresh", { method: "POST", headers: { [CSRF_HEADER]: "fetch" } })
+      .then((response) => response.ok)
+      .catch(() => false)
+      .finally(() => {
+        refreshing = null;
+      });
+  }
+  return refreshing;
+}
+
 interface RequestOptions {
   method?: string;
   body?: unknown;
   form?: FormData;
 }
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const headers: Record<string, string> = {};
-  const token = getToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
+async function request<T>(path: string, options: RequestOptions = {}, retry = true): Promise<T> {
+  const headers: Record<string, string> = { [CSRF_HEADER]: "fetch" };
 
   let body: BodyInit | undefined;
   if (options.form) {
@@ -67,7 +72,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
 
   const response = await fetch(path, { method: options.method ?? "GET", headers, body });
-  if (response.status === 401 && token) onUnauthorized();
+  if (response.status === 401 && retry && !path.startsWith("/api/auth/")) {
+    if (await refreshSession()) return request<T>(path, options, false);
+    onUnauthorized();
+  }
   if (!response.ok) throw new ApiError(response.status, await errorMessage(response));
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
@@ -92,10 +100,8 @@ export const api = {
       body: { organization_name, email, password },
     }),
   login: (email: string, password: string) =>
-    request<{ access_token: string }>("/api/auth/login", {
-      method: "POST",
-      body: { email, password },
-    }),
+    request<void>("/api/auth/login", { method: "POST", body: { email, password } }),
+  logout: () => request<void>("/api/auth/logout", { method: "POST" }),
   me: () => request<User>("/api/me"),
 
   users: () => request<User[]>("/api/users"),

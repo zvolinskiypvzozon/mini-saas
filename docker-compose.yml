@@ -32,6 +32,8 @@ services:
   api:
     build: ./api
     env_file: .env
+    environment:
+      FORWARDED_ALLOW_IPS: "*"
     ports:
       - "8001:8000"
     depends_on:

@@ -17,6 +17,7 @@ os.environ["S3_REGION"] = "us-east-1"
 from app import storage  # noqa: E402
 from app.db import engine  # noqa: E402
 from app.main import app  # noqa: E402
+from app.ratelimit import login_limiter  # noqa: E402
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -44,3 +45,9 @@ def s3_mock():
 @pytest.fixture
 def client():
     return TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def reset_login_limiter():
+    login_limiter.clear()
+    yield

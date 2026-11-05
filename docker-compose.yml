@@ -31,6 +31,7 @@ services:
 
   api:
     build: ./api
+    image: mini-saas-api:${APP_VERSION:-dev}
     env_file: .env
     environment:
       FORWARDED_ALLOW_IPS: "*"
@@ -45,6 +46,7 @@ services:
 
   web:
     build: ./frontend
+    image: mini-saas-web:${APP_VERSION:-dev}
     ports:
       - "8080:80"
     depends_on:
@@ -53,6 +55,7 @@ services:
 
   backup:
     build: ./backup
+    image: mini-saas-backup:${APP_VERSION:-dev}
     env_file: .env
     environment:
       BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}

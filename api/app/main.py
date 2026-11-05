@@ -1,11 +1,12 @@
-import os
-
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 
-engine = create_engine(os.environ["DATABASE_URL"], pool_pre_ping=True)
+from app.db import engine
+from app.routers import auth
+
 app = FastAPI(title="Mini SaaS")
+app.include_router(auth.router)
 
 
 @app.get("/health")

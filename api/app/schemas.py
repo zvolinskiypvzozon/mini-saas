@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -26,3 +27,18 @@ class UserOut(BaseModel):
     email: EmailStr
     role: str
     organization_id: uuid.UUID
+
+
+class FileOut(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: uuid.UUID
+    filename: str
+    content_type: str
+    size: int
+    created_at: datetime
+
+
+class DownloadOut(BaseModel):
+    url: str
+    expires_in: int

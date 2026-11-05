@@ -1,12 +1,23 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
+from app import storage
 from app.db import engine
-from app.routers import auth
+from app.routers import auth, files
 
-app = FastAPI(title="Mini SaaS")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    storage.ensure_bucket()
+    yield
+
+
+app = FastAPI(title="Mini SaaS", lifespan=lifespan)
 app.include_router(auth.router)
+app.include_router(files.router)
 
 
 @app.get("/health")

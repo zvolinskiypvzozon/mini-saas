@@ -23,7 +23,17 @@ if ! git rev-parse -q --verify "refs/tags/${version}" > /dev/null; then
       echo "working tree is not clean" >&2
       exit 1
     fi
+    latest="$(git tag --list 'v*' --sort=-v:refname | head -1)"
+    if [ -n "$latest" ] && [ "$(printf '%s\n%s\n' "$latest" "$version" | sort -V | tail -1)" != "$version" ]; then
+      echo "${version} must be greater than the latest release ${latest}" >&2
+      exit 1
+    fi
     commit=HEAD
+  fi
+  released="$(git tag --points-at "$commit" --list 'v*' | tr '\n' ' ')"
+  if [ -n "$released" ]; then
+    echo "commit $(git rev-parse --short "$commit") is already released as ${released}— merge new changes into main first" >&2
+    exit 1
   fi
   git tag -a "$version" -m "Release ${version}" "$commit"
   echo "tagged ${version} -> $(git rev-parse --short "${version}^{commit}")"

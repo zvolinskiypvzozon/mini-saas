@@ -6,7 +6,7 @@ from sqlalchemy import text
 
 from app import storage
 from app.db import engine
-from app.routers import auth, files
+from app.routers import auth, files, projects, tasks, users
 
 
 @asynccontextmanager
@@ -17,7 +17,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Mini SaaS", lifespan=lifespan)
 app.include_router(auth.router)
+app.include_router(users.router)
 app.include_router(files.router)
+app.include_router(projects.router)
+app.include_router(tasks.router)
 
 
 @app.get("/health")
